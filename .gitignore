@@ -1,0 +1,35 @@
+# Build directories
+build/
+cmake-build-*/
+
+# Compiled shared libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled object files
+*.o
+*.obj
+
+# Compiled executables
+verification/verify_preload
+research_poc/target
+research_poc/libintercept.dylib
+
+# Generated reports
+fake_gpu_report.json
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json

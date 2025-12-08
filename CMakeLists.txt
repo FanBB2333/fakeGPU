@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 3.14)
+project(FakeGPU VERSION 0.1)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Source directories
+add_subdirectory(src/core)
+add_subdirectory(src/nvml)
+add_subdirectory(src/cuda)
+add_subdirectory(src/monitor)
+
+# Main Shared Library
+# We link the OBJECT libraries from subdirectories to create one single shared library
+add_library(fake_gpu SHARED
+    $<TARGET_OBJECTS:fake_gpu_core>
+    $<TARGET_OBJECTS:fake_gpu_nvml>
+    $<TARGET_OBJECTS:fake_gpu_cuda>
+    $<TARGET_OBJECTS:fake_gpu_monitor>
+)
+
+# Platform specific flags
+if(APPLE)
+    # macOS specific linker flags for interposition if needed
+    target_link_options(fake_gpu PRIVATE "-undefined" "dynamic_lookup")
+    set_target_properties(fake_gpu PROPERTIES SUFFIX ".dylib")
+else()
+    set_target_properties(fake_gpu PROPERTIES SUFFIX ".so")
+endif()
