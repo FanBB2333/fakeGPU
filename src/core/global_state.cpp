@@ -1,5 +1,7 @@
 #include "global_state.hpp"
 
+#include <algorithm>
+
 namespace fake_gpu {
 
 GlobalState& GlobalState::instance() {
@@ -36,4 +38,57 @@ Device& GlobalState::get_device(int index) {
     return devices[index];
 }
 
+void GlobalState::set_current_device(int device) {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (device >= 0 && device < static_cast<int>(devices.size())) {
+        current_device = device;
+    }
+}
+
+int GlobalState::get_current_device() const {
+    std::lock_guard<std::mutex> lock(mutex);
+    return current_device;
+}
+
+bool GlobalState::register_allocation(void* ptr, size_t size, int device) {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!ptr) return false;
+    if (device < 0 || device >= static_cast<int>(devices.size())) return false;
+
+    Device& dev = devices[device];
+    if (dev.used_memory + size > dev.total_memory) {
+        return false; // not enough fake memory
+    }
+
+    dev.used_memory += size;
+    dev.used_memory_peak = std::max(dev.used_memory_peak, dev.used_memory);
+    allocations[ptr] = {size, device};
+    return true;
+}
+
+bool GlobalState::release_allocation(void* ptr, size_t& size, int& device) {
+    std::lock_guard<std::mutex> lock(mutex);
+    auto it = allocations.find(ptr);
+    if (it == allocations.end()) return false;
+
+    size = it->second.first;
+    device = it->second.second;
+    allocations.erase(it);
+
+    if (device >= 0 && device < static_cast<int>(devices.size())) {
+        Device& dev = devices[device];
+        if (dev.used_memory >= size) {
+            dev.used_memory -= size;
+        } else {
+            dev.used_memory = 0;
+        }
+    }
+    return true;
+}
+
 } // namespace fake_gpu
+
+// Ensure initialization when the shared library is preloaded
+__attribute__((constructor)) static void fake_gpu_constructor() {
+    fake_gpu::GlobalState::instance().initialize();
+}

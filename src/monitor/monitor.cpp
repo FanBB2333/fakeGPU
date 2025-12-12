@@ -38,7 +38,8 @@ public:
             out << "      \"name\": \"" << dev.name << "\",\n";
             out << "      \"uuid\": \"" << dev.uuid << "\",\n";
             out << "      \"total_memory\": " << dev.total_memory << ",\n";
-            out << "      \"used_memory_peak\": " << dev.used_memory << "\n"; // Simplified: currently just current usage
+            out << "      \"used_memory_peak\": " << dev.used_memory_peak << ",\n";
+            out << "      \"used_memory_current\": " << dev.used_memory << "\n";
             out << "    }" << (i < count - 1 ? "," : "") << "\n";
         }
         

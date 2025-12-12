@@ -3,7 +3,7 @@
 
 namespace fake_gpu {
 
-Device::Device(int idx) : index(idx), used_memory(0) {
+Device::Device(int idx) : index(idx), used_memory(0), used_memory_peak(0) {
     name = "Fake NVIDIA A100-SXM4-80GB";
     char uuid_buf[64];
     snprintf(uuid_buf, sizeof(uuid_buf), "GPU-%08x-%04x-%04x-%04x-%012x", 

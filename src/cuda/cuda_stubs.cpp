@@ -18,28 +18,55 @@ cudaError_t cudaGetDeviceCount(int *count) {
 }
 
 cudaError_t cudaSetDevice(int device) {
+    GlobalState::instance().initialize();
+    int count = GlobalState::instance().get_device_count();
+    if (device < 0 || device >= count) {
+        printf("[FakeCUDA] cudaSetDevice invalid index %d\n", device);
+        return cudaErrorInvalidDevice;
+    }
+    GlobalState::instance().set_current_device(device);
     printf("[FakeCUDA] cudaSetDevice(%d)\n", device);
     return cudaSuccess;
 }
 
 cudaError_t cudaMalloc(void **devPtr, size_t size) {
     if (!devPtr) return cudaErrorInvalidValue;
+    GlobalState::instance().initialize();
+    int device = GlobalState::instance().get_current_device();
+    Device& dev = GlobalState::instance().get_device(device);
+    if (dev.index < 0) return cudaErrorInvalidDevice;
+
     // Allocate real RAM
     void* ptr = malloc(size);
     if (!ptr) {
         printf("[FakeCUDA] cudaMalloc failed to allocate %zu bytes\n", size);
         return cudaErrorMemoryAllocation;
     }
+
+    if (!GlobalState::instance().register_allocation(ptr, size, device)) {
+        printf("[FakeCUDA] cudaMalloc denied %zu bytes on device %d (over commitment)\n", size, device);
+        free(ptr);
+        return cudaErrorMemoryAllocation;
+    }
+
     *devPtr = ptr;
-    
-    // In a real impl, we would track this against a specific device usage in GlobalState
-    printf("[FakeCUDA] cudaMalloc allocated %zu bytes at %p\n", size, ptr);
+    printf("[FakeCUDA] cudaMalloc allocated %zu bytes at %p on device %d\n", size, ptr, device);
     return cudaSuccess;
 }
 
 cudaError_t cudaFree(void *devPtr) {
     printf("[FakeCUDA] cudaFree(%p)\n", devPtr);
-    if (devPtr) free(devPtr);
+    if (!devPtr) return cudaSuccess;
+
+    size_t size = 0;
+    int device = -1;
+    bool tracked = GlobalState::instance().release_allocation(devPtr, size, device);
+    if (!tracked) {
+        printf("[FakeCUDA] cudaFree warning: pointer not tracked\n");
+    } else {
+        printf("[FakeCUDA] cudaFree released %zu bytes from device %d\n", size, device);
+    }
+    free(devPtr);
     return cudaSuccess;
 }
 
@@ -54,6 +81,7 @@ cudaError_t cudaGetDeviceProperties(cudaDeviceProp *prop, int device) {
     GlobalState::instance().initialize();
     
     Device& dev = GlobalState::instance().get_device(device);
+    if (dev.index < 0) return cudaErrorInvalidDevice;
     
     // Fill basic props
     memset(prop, 0, sizeof(cudaDeviceProp));
