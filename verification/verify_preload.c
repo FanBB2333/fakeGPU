@@ -1,7 +1,9 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <dlfcn.h>
 
 // Declare expected symbols (normally from nvml.h / cuda_runtime.h)
 typedef enum { NVML_SUCCESS = 0 } nvmlReturn_t;
@@ -10,19 +12,41 @@ typedef struct { unsigned long long total, free, used; } nvmlMemory_t;
 
 typedef enum { cudaSuccess = 0 } cudaError_t;
 
-// We declare them weak or just assume they will be resolved by DYLD_INSERT_LIBRARIES
-// "extern" implies they exist at link time. On Mac with -undefined dynamic_lookup this works.
-extern nvmlReturn_t nvmlInit();
-extern nvmlReturn_t nvmlDeviceGetCount(unsigned int *count);
-extern nvmlReturn_t nvmlDeviceGetHandleByIndex(unsigned int index, nvmlDevice_t *device);
-extern nvmlReturn_t nvmlDeviceGetMemoryInfo(nvmlDevice_t device, nvmlMemory_t *memory);
+// Function pointer types
+typedef nvmlReturn_t (*nvmlInit_t)();
+typedef nvmlReturn_t (*nvmlDeviceGetCount_t)(unsigned int *count);
+typedef nvmlReturn_t (*nvmlDeviceGetHandleByIndex_t)(unsigned int index, nvmlDevice_t *device);
+typedef nvmlReturn_t (*nvmlDeviceGetMemoryInfo_t)(nvmlDevice_t device, nvmlMemory_t *memory);
 
-extern cudaError_t cudaGetDeviceCount(int *count);
-extern cudaError_t cudaMalloc(void **devPtr, size_t size);
-extern cudaError_t cudaFree(void *devPtr);
+typedef cudaError_t (*cudaGetDeviceCount_t)(int *count);
+typedef cudaError_t (*cudaMalloc_t)(void **devPtr, size_t size);
+typedef cudaError_t (*cudaFree_t)(void *devPtr);
+
+// Function pointers
+nvmlInit_t nvmlInit;
+nvmlDeviceGetCount_t nvmlDeviceGetCount;
+nvmlDeviceGetHandleByIndex_t nvmlDeviceGetHandleByIndex;
+nvmlDeviceGetMemoryInfo_t nvmlDeviceGetMemoryInfo;
+cudaGetDeviceCount_t cudaGetDeviceCount;
+cudaMalloc_t cudaMalloc;
+cudaFree_t cudaFree;
 
 int main() {
     printf("--- Verification Start ---\n");
+
+    // Load symbols dynamically
+    nvmlInit = (nvmlInit_t)dlsym(RTLD_DEFAULT, "nvmlInit");
+    nvmlDeviceGetCount = (nvmlDeviceGetCount_t)dlsym(RTLD_DEFAULT, "nvmlDeviceGetCount");
+    nvmlDeviceGetHandleByIndex = (nvmlDeviceGetHandleByIndex_t)dlsym(RTLD_DEFAULT, "nvmlDeviceGetHandleByIndex");
+    nvmlDeviceGetMemoryInfo = (nvmlDeviceGetMemoryInfo_t)dlsym(RTLD_DEFAULT, "nvmlDeviceGetMemoryInfo");
+    cudaGetDeviceCount = (cudaGetDeviceCount_t)dlsym(RTLD_DEFAULT, "cudaGetDeviceCount");
+    cudaMalloc = (cudaMalloc_t)dlsym(RTLD_DEFAULT, "cudaMalloc");
+    cudaFree = (cudaFree_t)dlsym(RTLD_DEFAULT, "cudaFree");
+
+    if (!nvmlInit || !cudaGetDeviceCount) {
+        printf("Failed to load symbols. Make sure LD_PRELOAD is set correctly.\n");
+        return 1;
+    }
 
     // 1. NVML Test
     printf("[Test] calling nvmlInit...\n");
