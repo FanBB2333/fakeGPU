@@ -241,6 +241,53 @@ CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, size_t ByteC
     return CUDA_SUCCESS;
 }
 
+// Primary context management
+CUresult cuDevicePrimaryCtxRetain(CUcontext *pctx, CUdevice dev) {
+    if (!pctx) return CUDA_ERROR_INVALID_VALUE;
+    GlobalState::instance().initialize();
+
+    int count = GlobalState::instance().get_device_count();
+    if (dev < 0 || dev >= count) {
+        return CUDA_ERROR_INVALID_DEVICE;
+    }
+
+    // Return a fake context pointer (just use device number + 1 to avoid NULL)
+    *pctx = (CUcontext)(uintptr_t)(dev + 1);
+    current_context_device = dev;
+    printf("[FakeCUDA-Driver] cuDevicePrimaryCtxRetain for device %d, context=%p\n", dev, *pctx);
+    return CUDA_SUCCESS;
+}
+
+CUresult cuDevicePrimaryCtxRelease(CUdevice dev) {
+    GlobalState::instance().initialize();
+
+    int count = GlobalState::instance().get_device_count();
+    if (dev < 0 || dev >= count) {
+        return CUDA_ERROR_INVALID_DEVICE;
+    }
+
+    printf("[FakeCUDA-Driver] cuDevicePrimaryCtxRelease for device %d\n", dev);
+    return CUDA_SUCCESS;
+}
+
+// Context stack management
+CUresult cuCtxPushCurrent(CUcontext ctx) {
+    if (ctx == nullptr) {
+        current_context_device = 0;
+    } else {
+        current_context_device = (int)(uintptr_t)ctx - 1;
+    }
+    printf("[FakeCUDA-Driver] cuCtxPushCurrent(%p) -> device %d\n", ctx, current_context_device);
+    return CUDA_SUCCESS;
+}
+
+CUresult cuCtxPopCurrent(CUcontext *pctx) {
+    if (!pctx) return CUDA_ERROR_INVALID_VALUE;
+    *pctx = (CUcontext)(uintptr_t)(current_context_device + 1);
+    printf("[FakeCUDA-Driver] cuCtxPopCurrent returning context %p\n", *pctx);
+    return CUDA_SUCCESS;
+}
+
 // Error handling
 CUresult cuGetErrorString(CUresult error, const char **pStr) {
     static const char* error_strings[] = {

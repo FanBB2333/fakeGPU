@@ -106,8 +106,92 @@ cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim, dim3 blockDim, void
     return cudaSuccess;
 }
 
+cudaError_t cudaGetDevice(int *device) {
+    if (!device) return cudaErrorInvalidValue;
+    *device = GlobalState::instance().get_current_device();
+    printf("[FakeCUDA] cudaGetDevice returning %d\n", *device);
+    return cudaSuccess;
+}
+
+cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count, cudaMemcpyKind kind, cudaStream_t stream) {
+    printf("[FakeCUDA] cudaMemcpyAsync count=%zu kind=%d stream=%p\n", count, kind, stream);
+    memcpy(dst, src, count);
+    return cudaSuccess;
+}
+
+cudaError_t cudaMemset(void *devPtr, int value, size_t count) {
+    printf("[FakeCUDA] cudaMemset ptr=%p value=%d count=%zu\n", devPtr, value, count);
+    memset(devPtr, value, count);
+    return cudaSuccess;
+}
+
+cudaError_t cudaMemsetAsync(void *devPtr, int value, size_t count, cudaStream_t stream) {
+    printf("[FakeCUDA] cudaMemsetAsync ptr=%p value=%d count=%zu stream=%p\n", devPtr, value, count, stream);
+    memset(devPtr, value, count);
+    return cudaSuccess;
+}
+
+cudaError_t cudaDeviceSynchronize(void) {
+    printf("[FakeCUDA] cudaDeviceSynchronize (no-op)\n");
+    return cudaSuccess;
+}
+
+cudaError_t cudaStreamSynchronize(cudaStream_t stream) {
+    printf("[FakeCUDA] cudaStreamSynchronize stream=%p (no-op)\n", stream);
+    return cudaSuccess;
+}
+
+// Error tracking
+static __thread cudaError_t last_error = cudaSuccess;
+
+cudaError_t cudaGetLastError(void) {
+    cudaError_t err = last_error;
+    last_error = cudaSuccess;  // Clear error
+    printf("[FakeCUDA] cudaGetLastError returning %d\n", err);
+    return err;
+}
+
+cudaError_t cudaPeekAtLastError(void) {
+    printf("[FakeCUDA] cudaPeekAtLastError returning %d\n", last_error);
+    return last_error;
+}
+
 const char* cudaGetErrorString(cudaError_t error) {
-    return "Fake Success";
+    switch (error) {
+        case cudaSuccess:
+            return "no error";
+        case cudaErrorMemoryAllocation:
+            return "out of memory";
+        case cudaErrorInitializationError:
+            return "initialization error";
+        case cudaErrorInvalidValue:
+            return "invalid argument";
+        case cudaErrorInvalidDevice:
+            return "invalid device ordinal";
+        case cudaErrorNoDevice:
+            return "no CUDA-capable device is detected";
+        default:
+            return "unknown error";
+    }
+}
+
+const char* cudaGetErrorName(cudaError_t error) {
+    switch (error) {
+        case cudaSuccess:
+            return "cudaSuccess";
+        case cudaErrorMemoryAllocation:
+            return "cudaErrorMemoryAllocation";
+        case cudaErrorInitializationError:
+            return "cudaErrorInitializationError";
+        case cudaErrorInvalidValue:
+            return "cudaErrorInvalidValue";
+        case cudaErrorInvalidDevice:
+            return "cudaErrorInvalidDevice";
+        case cudaErrorNoDevice:
+            return "cudaErrorNoDevice";
+        default:
+            return "cudaErrorUnknown";
+    }
 }
 
 } // extern C

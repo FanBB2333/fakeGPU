@@ -52,12 +52,21 @@ typedef struct CUstream_st *cudaStream_t;
 // Function signatures
 cudaError_t cudaGetDeviceCount(int *count);
 cudaError_t cudaSetDevice(int device);
+cudaError_t cudaGetDevice(int *device);
 cudaError_t cudaMalloc(void **devPtr, size_t size);
 cudaError_t cudaFree(void *devPtr);
 cudaError_t cudaMemcpy(void *dst, const void *src, size_t count, cudaMemcpyKind kind);
+cudaError_t cudaMemcpyAsync(void *dst, const void *src, size_t count, cudaMemcpyKind kind, cudaStream_t stream);
+cudaError_t cudaMemset(void *devPtr, int value, size_t count);
+cudaError_t cudaMemsetAsync(void *devPtr, int value, size_t count, cudaStream_t stream);
 cudaError_t cudaGetDeviceProperties(cudaDeviceProp *prop, int device);
 cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim, dim3 blockDim, void **args, size_t sharedMem, cudaStream_t stream);
+cudaError_t cudaDeviceSynchronize(void);
+cudaError_t cudaStreamSynchronize(cudaStream_t stream);
+cudaError_t cudaGetLastError(void);
+cudaError_t cudaPeekAtLastError(void);
 const char* cudaGetErrorString(cudaError_t error);
+const char* cudaGetErrorName(cudaError_t error);
 
 #ifdef __cplusplus
 }
