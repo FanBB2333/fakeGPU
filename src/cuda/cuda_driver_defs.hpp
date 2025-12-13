@@ -77,6 +77,14 @@ CUresult cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount);
 CUresult cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, size_t ByteCount);
 CUresult cuMemcpyDtoD(CUdeviceptr dstDevice, CUdeviceptr srcDevice, size_t ByteCount);
 
+// Primary context management
+CUresult cuDevicePrimaryCtxRetain(CUcontext *pctx, CUdevice dev);
+CUresult cuDevicePrimaryCtxRelease(CUdevice dev);
+
+// Context stack management
+CUresult cuCtxPushCurrent(CUcontext ctx);
+CUresult cuCtxPopCurrent(CUcontext *pctx);
+
 // Error handling
 CUresult cuGetErrorString(CUresult error, const char **pStr);
 CUresult cuGetErrorName(CUresult error, const char **pStr);
