@@ -1,5 +1,6 @@
 add_library(fake_gpu_cuda OBJECT
     cuda_stubs.cpp
+    cuda_driver_stubs.cpp
 )
 
 target_include_directories(fake_gpu_cuda PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

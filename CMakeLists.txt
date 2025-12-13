@@ -19,6 +19,9 @@ add_library(fake_gpu SHARED
     $<TARGET_OBJECTS:fake_gpu_monitor>
 )
 
+# Link dl library for dlopen/dlsym interception
+target_link_libraries(fake_gpu PRIVATE ${CMAKE_DL_LIBS})
+
 # Platform specific flags
 if(APPLE)
     # macOS specific linker flags for interposition if needed

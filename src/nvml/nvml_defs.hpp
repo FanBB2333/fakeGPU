@@ -44,6 +44,15 @@ typedef struct nvmlUtilization_st {
     unsigned int memory;
 } nvmlUtilization_t;
 
+typedef struct nvmlPciInfo_st {
+    char busId[16];
+    unsigned int domain;
+    unsigned int bus;
+    unsigned int device;
+    unsigned int pciDeviceId;
+    unsigned int pciSubSystemId;
+} nvmlPciInfo_t;
+
 // Constants
 #define NVML_DEVICE_NAME_BUFFER_SIZE 64
 #define NVML_DEVICE_UUID_BUFFER_SIZE 80
