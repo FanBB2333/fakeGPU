@@ -67,6 +67,21 @@ nvmlReturn_t nvmlDeviceGetMemoryInfo(nvmlDevice_t device, nvmlMemory_t *memory) 
     return NVML_SUCCESS;
 }
 
+nvmlReturn_t nvmlDeviceGetPciInfo(nvmlDevice_t device, nvmlPciInfo_t *pci) {
+    if (!device || !pci) return NVML_ERROR_INVALID_ARGUMENT;
+    Device* dev = (Device*)device;
+
+    // Fill in PCI info from device
+    snprintf(pci->busId, sizeof(pci->busId), "%s", dev->pci_bus_id.c_str());
+    pci->domain = 0;
+    pci->bus = dev->index + 1;
+    pci->device = 0;
+    pci->pciDeviceId = 0x20B0;  // A100 device ID
+    pci->pciSubSystemId = 0x1450;
+
+    return NVML_SUCCESS;
+}
+
 const char* nvmlErrorString(nvmlReturn_t result) {
     switch (result) {
         case NVML_SUCCESS: return "Success";
