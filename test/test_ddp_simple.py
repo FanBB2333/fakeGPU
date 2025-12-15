@@ -1,19 +1,60 @@
 import os
 import torch
+import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
-
-# Disable torchvision to avoid operator registration error
-os.environ['TRANSFORMERS_NO_TORCHVISION'] = '1'
-
-from transformers import GPT2Config, GPT2LMHeadModel
 from torch.optim import AdamW
 import argparse
 
 
+class SimpleTransformerBlock(nn.Module):
+    def __init__(self, embed_dim, num_heads):
+        super().__init__()
+        self.attention = nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        self.ffn = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.GELU(),
+            nn.Linear(embed_dim * 4, embed_dim),
+        )
+
+    def forward(self, x):
+        attn_out, _ = self.attention(x, x, x)
+        x = self.norm1(x + attn_out)
+        ffn_out = self.ffn(x)
+        x = self.norm2(x + ffn_out)
+        return x
+
+
+class SimpleTransformer(nn.Module):
+    def __init__(self, vocab_size, embed_dim, num_heads, num_layers):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.layers = nn.ModuleList([
+            SimpleTransformerBlock(embed_dim, num_heads)
+            for _ in range(num_layers)
+        ])
+        self.lm_head = nn.Linear(embed_dim, vocab_size)
+
+    def forward(self, input_ids, labels=None):
+        x = self.embedding(input_ids)
+        for layer in self.layers:
+            x = layer(x)
+        logits = self.lm_head(x)
+
+        loss = None
+        if labels is not None:
+            loss = nn.functional.cross_entropy(
+                logits.view(-1, logits.size(-1)),
+                labels.view(-1)
+            )
+
+        return {"loss": loss, "logits": logits}
+
+
 class DummyTextDataset(Dataset):
-    """简单的随机数据集用于测试"""
     def __init__(self, num_samples=1000, seq_length=128, vocab_size=50257):
         self.num_samples = num_samples
         self.seq_length = seq_length
@@ -32,7 +73,6 @@ class DummyTextDataset(Dataset):
 
 
 def setup_distributed():
-    """初始化分布式训练环境"""
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = int(os.environ['RANK'])
         world_size = int(os.environ['WORLD_SIZE'])
@@ -54,13 +94,11 @@ def setup_distributed():
 
 
 def cleanup_distributed():
-    """清理分布式训练环境"""
     if dist.is_initialized():
         dist.destroy_process_group()
 
 
 def train(args):
-    """训练函数"""
     rank, world_size, local_rank = setup_distributed()
 
     print(f"[Rank {rank}] 初始化完成, World Size: {world_size}, Local Rank: {local_rank}")
@@ -72,16 +110,13 @@ def train(args):
     print(f"[Rank {rank}] 设备名称: {torch.cuda.get_device_name(local_rank)}")
     print(f"[Rank {rank}] 设备内存: {torch.cuda.get_device_properties(local_rank).total_memory / 1024**3:.2f} GB")
 
-    config = GPT2Config(
-        vocab_size=50257,
-        n_positions=128,
-        n_embd=256,
-        n_layer=4,
-        n_head=4,
-    )
-
     print(f"[Rank {rank}] 创建模型...")
-    model = GPT2LMHeadModel(config)
+    model = SimpleTransformer(
+        vocab_size=50257,
+        embed_dim=256,
+        num_heads=4,
+        num_layers=4
+    )
     model = model.to(device)
 
     if world_size > 1:
@@ -112,7 +147,7 @@ def train(args):
             labels = batch['labels'].to(device)
 
             outputs = model(input_ids=input_ids, labels=labels)
-            loss = outputs.loss
+            loss = outputs['loss']
 
             optimizer.zero_grad()
             loss.backward()
@@ -139,7 +174,7 @@ def train(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='测试transformers + DDP多卡训练')
+    parser = argparse.ArgumentParser(description='测试PyTorch DDP多卡训练')
     parser.add_argument('--epochs', type=int, default=2, help='训练轮数')
     parser.add_argument('--batch-size', type=int, default=4, help='批次大小')
     parser.add_argument('--lr', type=float, default=5e-5, help='学习率')
@@ -148,7 +183,7 @@ def main():
 
     args = parser.parse_args()
 
-    print("=== FakeGPU Transformers DDP 测试 ===")
+    print("=== FakeGPU PyTorch DDP 测试 ===")
     print(f"PyTorch版本: {torch.__version__}")
     print(f"CUDA可用: {torch.cuda.is_available()}")
     print(f"GPU数量: {torch.cuda.device_count()}")
