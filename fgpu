@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${FAKEGPU_BUILD_DIR:-${SCRIPT_DIR}/build}"
 
 if [[ $# -eq 0 ]]; then
-  echo "Usage: $(basename "$0") <command> [args...]" >&2
+  echo "Usage: $(basename "$0") [--profile ID] [--device-count N] [--devices SPEC] [--] <command> [args...]" >&2
   exit 1
 fi
 
@@ -32,5 +32,48 @@ done
 
 export LD_LIBRARY_PATH="${BUILD_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 export LD_PRELOAD="${BUILD_DIR}/libcublas.so.12:${BUILD_DIR}/libcudart.so.12:${BUILD_DIR}/libcuda.so.1:${BUILD_DIR}/libnvidia-ml.so.1${LD_PRELOAD:+:${LD_PRELOAD}}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --profile)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --profile" >&2
+        exit 2
+      fi
+      export FAKEGPU_PROFILE="$2"
+      shift 2
+      ;;
+    --device-count)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --device-count" >&2
+        exit 2
+      fi
+      export FAKEGPU_DEVICE_COUNT="$2"
+      shift 2
+      ;;
+    --devices|--profiles|--gpus)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --devices" >&2
+        exit 2
+      fi
+      export FAKEGPU_PROFILES="$2"
+      shift 2
+      ;;
+    --help|-h)
+      echo "Usage: $(basename "$0") [--profile ID] [--device-count N] [--devices SPEC] [--] <command> [args...]" >&2
+      echo "  --profile ID       Set $FAKEGPU_PROFILE (uniform preset, e.g. a100)" >&2
+      echo "  --device-count N   Set $FAKEGPU_DEVICE_COUNT (default: 8)" >&2
+      echo "  --devices SPEC     Set $FAKEGPU_PROFILES (e.g. 'a100:4,h100:4')" >&2
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
 
 exec "$@"
